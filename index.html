@@ -157,16 +157,16 @@
   </div>
 </div>
 
-<!-- NAVEGACIÓN INFERIOR -->
+<!-- NAVEGACIÓN INFERIOR (Corregida pasando el elemento "this") -->
 <div class="bottom-nav">
-  <div class="nav-item active" onclick="switchTab('caja')"><span class="nav-icon">🛒</span>Caja</div>
-  <div class="nav-item" onclick="switchTab('inventario')"><span class="nav-icon">📦</span>Inventario</div>
-  <div class="nav-item" onclick="switchTab('cuaderno')"><span class="nav-icon">📓</span>Cuaderno</div>
+  <div class="nav-item active" onclick="switchTab('caja', this)"><span class="nav-icon">🛒</span>Caja</div>
+  <div class="nav-item" onclick="switchTab('inventario', this)"><span class="nav-icon">📦</span>Inventario</div>
+  <div class="nav-item" onclick="switchTab('cuaderno', this)"><span class="nav-icon">📓</span>Cuaderno</div>
   <div class="nav-item" onclick="alert('Próximamente: Contabilidad y Balance')"><span class="nav-icon">📊</span>Balance</div>
 </div>
 
 <script>
-  // 1. CONFIGURACIÓN SUPABASE (Tus credenciales exactas)
+  // 1. CONFIGURACIÓN SUPABASE
   const SUPABASE_URL = 'https://rpppptdhzrkqevaleepm.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_0AGJqfTx3j9c4NjliiRbXQ_1qlTF4AH';
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -177,12 +177,13 @@
   let totalVenta = 0;
   let gananciaVenta = 0;
 
-  // 2. NAVEGACIÓN
-  function switchTab(tab) {
+  // 2. NAVEGACIÓN (Corregida para celulares)
+  function switchTab(tab, elemento) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    
     document.getElementById('screen-' + tab).classList.add('active');
-    event.currentTarget.classList.add('active');
+    elemento.classList.add('active');
     
     const titles = { 'caja': '🛒 Caja Registradora', 'inventario': '📦 Inventario', 'cuaderno': '📓 Cuaderno de Fiados' };
     document.getElementById('headerTitle').textContent = titles[tab];
@@ -244,7 +245,6 @@
 
   function renderClientes(lista) {
     const container = document.getElementById('clientesList');
-    // Filtrar solo los que deben algo, o mostrar todos si quieres
     const deudores = lista.filter(c => c.saldo_pendiente > 0);
     
     if (deudores.length === 0) {
@@ -289,9 +289,7 @@
 
     const nuevoSaldo = deudaActual - monto;
 
-    // 1. Guardar el abono
     await supabase.from('abonos').insert([{ cliente_id: id, monto: monto }]);
-    // 2. Actualizar la deuda del cliente
     await supabase.from('clientes_fiado').update({ saldo_pendiente: nuevoSaldo }).eq('id', id);
 
     alert('Abono registrado con éxito');
@@ -354,7 +352,7 @@
     document.getElementById('metodosPago').style.display = 'grid';
     document.getElementById('calcCambio').style.display = 'none';
     document.getElementById('selectFiado').style.display = 'none';
-    cargarClientes(); // Asegurar que la lista esté fresca para fiar
+    cargarClientes(); 
   }
 
   function cerrarModal() { document.getElementById('modalCobro').style.display = 'none'; }
@@ -382,25 +380,21 @@
   async function procesarVenta(metodo) {
     let clienteId = null;
 
-    // Si es fiado, validar que escogió a alguien
     if (metodo === 'Fiado') {
       clienteId = document.getElementById('clienteSelect').value;
       if (!clienteId) return alert('Debes seleccionar a un cliente para fiarle');
     }
 
-    // 1. Guardar Venta
     const { error } = await supabase.from('ventas').insert([{
       total_venta: totalVenta, ganancia_neta: gananciaVenta,
       metodo_pago: metodo, cliente_id: clienteId, articulos: carrito
     }]);
     if (error) return alert('Error al registrar venta');
 
-    // 2. Descontar Inventario
     for (const item of carrito) {
       await supabase.from('productos').update({ stock: item.stock - item.cantidad }).eq('id', item.id);
     }
 
-    // 3. Sumar deuda si es fiado
     if (metodo === 'Fiado') {
       const clienteInfo = clientes.find(c => c.id === clienteId);
       const nuevaDeuda = clienteInfo.saldo_pendiente + totalVenta;
