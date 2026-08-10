@@ -166,10 +166,10 @@
 </div>
 
 <script>
-  // 1. CONFIGURACIÓN SUPABASE
+  // 1. CONFIGURACIÓN SUPABASE (Arreglado el conflicto de nombre)
   const SUPABASE_URL = 'https://rpppptdhzrkqevaleepm.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_0AGJqfTx3j9c4NjliiRbXQ_1qlTF4AH';
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   let productos = [];
   let clientes = [];
@@ -182,11 +182,11 @@
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     
-    document.getElementById('screen-' + tab).classList.add('active');
+    document.getElementById('screen-' + tab)?.classList.add('active');
     elemento.classList.add('active');
     
     const titles = { 'caja': '🛒 Caja Registradora', 'inventario': '📦 Inventario', 'cuaderno': '📓 Cuaderno de Fiados' };
-    document.getElementById('headerTitle').textContent = titles[tab];
+    document.getElementById('headerTitle').textContent = titles[tab] || '📊 Balance';
     
     if(tab === 'caja') cargarProductos();
     if(tab === 'cuaderno') cargarClientes();
@@ -194,7 +194,7 @@
 
   // 3. INVENTARIO
   async function cargarProductos() {
-    const { data } = await supabase.from('productos').select('*').order('nombre');
+    const { data } = await db.from('productos').select('*').order('nombre');
     if (data) { productos = data; renderProductos(productos); }
   }
 
@@ -226,7 +226,7 @@
     const vence = document.getElementById('invVence').value || null;
 
     if(!nombre || !compra || !venta) return alert('Faltan datos obligatorios');
-    await supabase.from('productos').insert([{ nombre, precio_compra: compra, precio_venta: venta, stock, fecha_vencimiento: vence }]);
+    await db.from('productos').insert([{ nombre, precio_compra: compra, precio_venta: venta, stock, fecha_vencimiento: vence }]);
     
     alert('Producto guardado');
     document.querySelectorAll('#screen-inventario input').forEach(i => i.value = '');
@@ -235,7 +235,7 @@
 
   // 4. CLIENTES Y CUADERNO
   async function cargarClientes() {
-    const { data } = await supabase.from('clientes_fiado').select('*').order('nombre');
+    const { data } = await db.from('clientes_fiado').select('*').order('nombre');
     if (data) {
       clientes = data;
       renderClientes(clientes);
@@ -272,7 +272,7 @@
   async function guardarCliente() {
     const nombre = document.getElementById('cliNombre').value;
     if(!nombre) return alert('Escribe el nombre del cliente');
-    await supabase.from('clientes_fiado').insert([{ nombre, saldo_pendiente: 0 }]);
+    await db.from('clientes_fiado').insert([{ nombre, saldo_pendiente: 0 }]);
     
     document.getElementById('cliNombre').value = '';
     cargarClientes();
@@ -289,8 +289,8 @@
 
     const nuevoSaldo = deudaActual - monto;
 
-    await supabase.from('abonos').insert([{ cliente_id: id, monto: monto }]);
-    await supabase.from('clientes_fiado').update({ saldo_pendiente: nuevoSaldo }).eq('id', id);
+    await db.from('abonos').insert([{ cliente_id: id, monto: monto }]);
+    await db.from('clientes_fiado').update({ saldo_pendiente: nuevoSaldo }).eq('id', id);
 
     alert('Abono registrado con éxito');
     cargarClientes();
@@ -385,20 +385,20 @@
       if (!clienteId) return alert('Debes seleccionar a un cliente para fiarle');
     }
 
-    const { error } = await supabase.from('ventas').insert([{
+    const { error } = await db.from('ventas').insert([{
       total_venta: totalVenta, ganancia_neta: gananciaVenta,
       metodo_pago: metodo, cliente_id: clienteId, articulos: carrito
     }]);
     if (error) return alert('Error al registrar venta');
 
     for (const item of carrito) {
-      await supabase.from('productos').update({ stock: item.stock - item.cantidad }).eq('id', item.id);
+      await db.from('productos').update({ stock: item.stock - item.cantidad }).eq('id', item.id);
     }
 
     if (metodo === 'Fiado') {
       const clienteInfo = clientes.find(c => c.id === clienteId);
       const nuevaDeuda = clienteInfo.saldo_pendiente + totalVenta;
-      await supabase.from('clientes_fiado').update({ saldo_pendiente: nuevaDeuda }).eq('id', clienteId);
+      await db.from('clientes_fiado').update({ saldo_pendiente: nuevaDeuda }).eq('id', clienteId);
     }
 
     alert('✅ Venta registrada con éxito');
