@@ -14,22 +14,19 @@
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
   body { background: var(--gray); color: var(--dark); padding-bottom: 70px; -webkit-tap-highlight-color: transparent; }
 
-  /* HEADER */
   header { background: var(--primary); color: var(--white); padding: 16px; text-align: center; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
   header h1 { font-size: 18px; font-weight: 600; }
 
-  /* SCREENS */
   .screen { display: none; padding: 16px; animation: fadeIn 0.2s; }
   .screen.active { display: block; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-  /* TABS (BOTTOM NAV) */
   .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--white); display: flex; border-top: 1px solid #e2e8f0; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
   .nav-item { flex: 1; padding: 12px 0; text-align: center; color: var(--gray-dark); font-size: 12px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
   .nav-item.active { color: var(--primary); }
   .nav-icon { font-size: 20px; }
 
-  /* CAJA (POS) */
+  /* CAJA */
   .search-bar { width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 16px; margin-bottom: 16px; outline: none; }
   .search-bar:focus { border-color: var(--primary); }
   
@@ -43,13 +40,17 @@
   /* CARRITO */
   .cart-section { background: var(--white); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
   .cart-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding: 12px 0; }
-  .cart-item:last-child { border-bottom: none; }
   .cart-qty { display: flex; align-items: center; gap: 12px; }
   .qty-btn { background: var(--gray); border: none; width: 28px; height: 28px; border-radius: 6px; font-weight: bold; }
-  
   .cart-total { display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin: 16px 0; padding-top: 16px; border-top: 2px dashed #e2e8f0; }
   .btn-cobrar { background: var(--success); color: white; width: 100%; padding: 16px; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; }
   .btn-cobrar:disabled { background: var(--gray-dark); }
+
+  /* CUADERNO Y CLIENTES */
+  .client-card { background: var(--white); padding: 16px; border-radius: 12px; margin-bottom: 10px; border-left: 4px solid var(--warning); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .client-info h3 { font-size: 16px; margin-bottom: 4px; }
+  .client-debt { color: var(--danger); font-weight: 700; font-size: 15px; }
+  .btn-abono { background: var(--success); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 13px; }
 
   /* MODALS */
   .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: flex-end; z-index: 200; }
@@ -62,11 +63,12 @@
   .btn-pay.nequi { border-color: var(--primary); color: var(--primary); }
   .btn-pay.fiar { border-color: var(--warning); color: var(--warning); }
   
-  .calc-change { display: none; margin-top: 20px; }
-  .input-large { width: 100%; padding: 16px; font-size: 24px; font-weight: bold; border: 2px solid var(--success); border-radius: 12px; text-align: center; margin-bottom: 12px; }
+  .calc-change, .select-client { display: none; margin-top: 20px; }
+  .input-large { width: 100%; padding: 16px; font-size: 20px; font-weight: bold; border: 2px solid #cbd5e1; border-radius: 12px; margin-bottom: 12px; }
+  .input-large.green { border-color: var(--success); text-align: center; font-size: 24px; }
   .change-result { text-align: center; font-size: 20px; color: var(--danger); font-weight: bold; margin-bottom: 16px; }
 
-  /* FORMULARIOS (Inventario) */
+  /* FORMULARIOS */
   .form-group { margin-bottom: 16px; }
   .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--dark); }
   .form-group input { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; }
@@ -82,19 +84,11 @@
 <!-- PANTALLA: CAJA -->
 <div id="screen-caja" class="screen active">
   <input type="text" id="searchInput" class="search-bar" placeholder="🔍 Buscar producto..." oninput="filtrarProductos()">
-  
-  <div class="product-grid" id="productosList">
-    <!-- Productos cargados por JS -->
-  </div>
-
+  <div class="product-grid" id="productosList"></div>
   <div class="cart-section">
     <h3 style="margin-bottom: 12px;">Cuenta Actual</h3>
     <div id="cartList"><p style="color:var(--gray-dark); font-size:14px; text-align:center;">Agrega productos para cobrar</p></div>
-    
-    <div class="cart-total">
-      <span>Total:</span>
-      <span id="cartTotal">$0</span>
-    </div>
+    <div class="cart-total"><span>Total:</span><span id="cartTotal">$0</span></div>
     <button class="btn-cobrar" id="btnCobrar" onclick="abrirModalCobro()" disabled>COBRAR</button>
   </div>
 </div>
@@ -105,14 +99,28 @@
     <h3 style="margin-bottom: 16px;">➕ Nuevo Producto</h3>
     <div class="form-group"><label>Nombre del producto</label><input type="text" id="invNombre" placeholder="Ej: Coca Cola 1.5L"></div>
     <div style="display: flex; gap: 10px;">
-      <div class="form-group" style="flex:1;"><label>Precio Compra ($)</label><input type="number" id="invCompra" placeholder="Ej: 3500"></div>
-      <div class="form-group" style="flex:1;"><label>Precio Venta ($)</label><input type="number" id="invVenta" placeholder="Ej: 4500"></div>
+      <div class="form-group" style="flex:1;"><label>Compra ($)</label><input type="number" id="invCompra" placeholder="3500"></div>
+      <div class="form-group" style="flex:1;"><label>Venta ($)</label><input type="number" id="invVenta" placeholder="4500"></div>
     </div>
     <div style="display: flex; gap: 10px;">
-      <div class="form-group" style="flex:1;"><label>Cant. Inicial</label><input type="number" id="invStock" placeholder="Ej: 12"></div>
-      <div class="form-group" style="flex:1;"><label>Vence el (Opcional)</label><input type="date" id="invVence"></div>
+      <div class="form-group" style="flex:1;"><label>Cant. Inicial</label><input type="number" id="invStock" placeholder="12"></div>
+      <div class="form-group" style="flex:1;"><label>Vence el</label><input type="date" id="invVence"></div>
     </div>
     <button class="btn-submit" onclick="guardarProducto()">Guardar Producto</button>
+  </div>
+</div>
+
+<!-- PANTALLA: CUADERNO DE FIADOS -->
+<div id="screen-cuaderno" class="screen">
+  <div style="background: white; padding: 16px; border-radius: 12px; margin-bottom: 20px;">
+    <h3 style="margin-bottom: 16px;">➕ Agregar Cliente (Para fiar)</h3>
+    <div class="form-group"><label>Nombre del Cliente</label><input type="text" id="cliNombre" placeholder="Ej: Doña María"></div>
+    <button class="btn-submit" style="background:var(--warning);" onclick="guardarCliente()">Registrar Cliente</button>
+  </div>
+
+  <h3 style="margin-bottom: 12px;">Personas que deben</h3>
+  <div id="clientesList">
+    <!-- Lista de clientes con deudas -->
   </div>
 </div>
 
@@ -124,16 +132,28 @@
     <div id="metodosPago" class="payment-grid">
       <button class="btn-pay efectivo" onclick="seleccionarPago('Efectivo')">💵 Paga con Efectivo</button>
       <button class="btn-pay nequi" onclick="procesarVenta('Transferencia')">📱 Nequi / Daviplata</button>
-      <button class="btn-pay fiar" onclick="alert('Módulo de Fiados en construcción')">📓 Anotar en Cuaderno (Fiar)</button>
+      <button class="btn-pay fiar" onclick="seleccionarPago('Fiado')">📓 Anotar en Cuaderno</button>
     </div>
 
+    <!-- PAGO EFECTIVO -->
     <div id="calcCambio" class="calc-change">
       <p style="text-align: center; margin-bottom: 8px; font-weight: 600;">¿Con qué billete paga?</p>
-      <input type="number" id="billeteInput" class="input-large" placeholder="$0" oninput="calcularCambio()">
+      <input type="number" id="billeteInput" class="input-large green" placeholder="$0" oninput="calcularCambio()">
       <div class="change-result" id="textoCambio">Cambio: $0</div>
       <button class="btn-submit" style="background:var(--success)" onclick="procesarVenta('Efectivo')">Confirmar Venta en Efectivo</button>
       <button style="width:100%; padding:12px; background:none; border:none; color:var(--gray-dark); margin-top:8px;" onclick="cerrarModal()">Cancelar</button>
     </div>
+
+    <!-- PAGO FIADO -->
+    <div id="selectFiado" class="select-client">
+      <p style="text-align: center; margin-bottom: 8px; font-weight: 600;">¿A quién le vamos a fiar?</p>
+      <select id="clienteSelect" class="input-large">
+        <option value="">Selecciona un cliente...</option>
+      </select>
+      <button class="btn-submit" style="background:var(--warning)" onclick="procesarVenta('Fiado')">Anotar Deuda</button>
+      <button style="width:100%; padding:12px; background:none; border:none; color:var(--gray-dark); margin-top:8px;" onclick="cerrarModal()">Cancelar</button>
+    </div>
+
   </div>
 </div>
 
@@ -141,17 +161,18 @@
 <div class="bottom-nav">
   <div class="nav-item active" onclick="switchTab('caja')"><span class="nav-icon">🛒</span>Caja</div>
   <div class="nav-item" onclick="switchTab('inventario')"><span class="nav-icon">📦</span>Inventario</div>
-  <div class="nav-item" onclick="alert('Próximamente')"><span class="nav-icon">📓</span>Cuaderno</div>
-  <div class="nav-item" onclick="alert('Próximamente')"><span class="nav-icon">📊</span>Balance</div>
+  <div class="nav-item" onclick="switchTab('cuaderno')"><span class="nav-icon">📓</span>Cuaderno</div>
+  <div class="nav-item" onclick="alert('Próximamente: Contabilidad y Balance')"><span class="nav-icon">📊</span>Balance</div>
 </div>
 
 <script>
-  // 1. CONFIGURACIÓN SUPABASE (Reemplaza con tus datos)
+  // 1. CONFIGURACIÓN SUPABASE (Tus credenciales exactas)
   const SUPABASE_URL = 'https://rpppptdhzrkqevaleepm.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_0AGJqfTx3j9c4NjliiRbXQ_1qlTF4AH';
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   let productos = [];
+  let clientes = [];
   let carrito = [];
   let totalVenta = 0;
   let gananciaVenta = 0;
@@ -163,17 +184,17 @@
     document.getElementById('screen-' + tab).classList.add('active');
     event.currentTarget.classList.add('active');
     
-    document.getElementById('headerTitle').textContent = tab === 'caja' ? '🛒 Caja Registradora' : '📦 Gestión de Inventario';
+    const titles = { 'caja': '🛒 Caja Registradora', 'inventario': '📦 Inventario', 'cuaderno': '📓 Cuaderno de Fiados' };
+    document.getElementById('headerTitle').textContent = titles[tab];
+    
     if(tab === 'caja') cargarProductos();
+    if(tab === 'cuaderno') cargarClientes();
   }
 
-  // 3. INVENTARIO (Leer y Crear)
+  // 3. INVENTARIO
   async function cargarProductos() {
-    const { data, error } = await supabase.from('productos').select('*').order('nombre');
-    if (data) {
-      productos = data;
-      renderProductos(productos);
-    }
+    const { data } = await supabase.from('productos').select('*').order('nombre');
+    if (data) { productos = data; renderProductos(productos); }
   }
 
   function renderProductos(lista) {
@@ -203,28 +224,85 @@
     const stock = parseInt(document.getElementById('invStock').value);
     const vence = document.getElementById('invVence').value || null;
 
-    if(!nombre || !compra || !venta) return alert('Completa los campos obligatorios');
+    if(!nombre || !compra || !venta) return alert('Faltan datos obligatorios');
+    await supabase.from('productos').insert([{ nombre, precio_compra: compra, precio_venta: venta, stock, fecha_vencimiento: vence }]);
+    
+    alert('Producto guardado');
+    document.querySelectorAll('#screen-inventario input').forEach(i => i.value = '');
+    cargarProductos();
+  }
 
-    const { error } = await supabase.from('productos').insert([{ 
-      nombre, precio_compra: compra, precio_venta: venta, stock, fecha_vencimiento: vence 
-    }]);
-
-    if(error) alert('Error: ' + error.message);
-    else {
-      alert('Producto guardado');
-      document.querySelectorAll('input').forEach(i => i.value = ''); // Limpiar
-      cargarProductos();
+  // 4. CLIENTES Y CUADERNO
+  async function cargarClientes() {
+    const { data } = await supabase.from('clientes_fiado').select('*').order('nombre');
+    if (data) {
+      clientes = data;
+      renderClientes(clientes);
+      actualizarSelectClientes(clientes);
     }
   }
 
-  // 4. CAJA Y CARRITO
+  function renderClientes(lista) {
+    const container = document.getElementById('clientesList');
+    // Filtrar solo los que deben algo, o mostrar todos si quieres
+    const deudores = lista.filter(c => c.saldo_pendiente > 0);
+    
+    if (deudores.length === 0) {
+      container.innerHTML = '<p style="text-align:center; color:var(--gray-dark); margin-top:20px;">Nadie debe nada. ¡Excelente!</p>';
+      return;
+    }
+
+    container.innerHTML = deudores.map(c => `
+      <div class="client-card">
+        <div class="client-info">
+          <h3>${c.nombre}</h3>
+          <span class="client-debt">Debe: $${c.saldo_pendiente.toLocaleString()}</span>
+        </div>
+        <button class="btn-abono" onclick="registrarAbono('${c.id}', '${c.nombre}', ${c.saldo_pendiente})">Abonar</button>
+      </div>
+    `).join('');
+  }
+
+  function actualizarSelectClientes(lista) {
+    const select = document.getElementById('clienteSelect');
+    select.innerHTML = '<option value="">Selecciona un cliente...</option>' + 
+      lista.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+  }
+
+  async function guardarCliente() {
+    const nombre = document.getElementById('cliNombre').value;
+    if(!nombre) return alert('Escribe el nombre del cliente');
+    await supabase.from('clientes_fiado').insert([{ nombre, saldo_pendiente: 0 }]);
+    
+    document.getElementById('cliNombre').value = '';
+    cargarClientes();
+    alert('Cliente agregado al cuaderno');
+  }
+
+  async function registrarAbono(id, nombre, deudaActual) {
+    const montoStr = prompt(`¿Cuánto va a abonar ${nombre}? (Debe $${deudaActual.toLocaleString()})`);
+    if (!montoStr) return;
+    
+    const monto = parseInt(montoStr);
+    if (isNaN(monto) || monto <= 0) return alert('Cantidad inválida');
+    if (monto > deudaActual) return alert('El abono no puede ser mayor a la deuda');
+
+    const nuevoSaldo = deudaActual - monto;
+
+    // 1. Guardar el abono
+    await supabase.from('abonos').insert([{ cliente_id: id, monto: monto }]);
+    // 2. Actualizar la deuda del cliente
+    await supabase.from('clientes_fiado').update({ saldo_pendiente: nuevoSaldo }).eq('id', id);
+
+    alert('Abono registrado con éxito');
+    cargarClientes();
+  }
+
+  // 5. CAJA Y CARRITO
   function agregarAlCarrito(id) {
     const prod = productos.find(p => p.id === id);
     const item = carrito.find(c => c.id === id);
-    
-    if (item) item.cantidad++;
-    else carrito.push({ ...prod, cantidad: 1 });
-    
+    if (item) item.cantidad++; else carrito.push({ ...prod, cantidad: 1 });
     actualizarCarrito();
   }
 
@@ -237,8 +315,7 @@
 
   function actualizarCarrito() {
     const container = document.getElementById('cartList');
-    totalVenta = 0;
-    gananciaVenta = 0;
+    totalVenta = 0; gananciaVenta = 0;
 
     if (carrito.length === 0) {
       container.innerHTML = '<p style="color:var(--gray-dark); font-size:14px; text-align:center;">Agrega productos para cobrar</p>';
@@ -251,7 +328,6 @@
       const subtotal = c.precio_venta * c.cantidad;
       totalVenta += subtotal;
       gananciaVenta += (c.precio_venta - c.precio_compra) * c.cantidad;
-      
       return `
       <div class="cart-item">
         <div style="flex:1">
@@ -264,32 +340,34 @@
           <button class="qty-btn" onclick="cambiarCant('${c.id}', 1)">+</button>
         </div>
         <div style="font-weight:bold; font-size:15px; width:70px; text-align:right;">$${subtotal.toLocaleString()}</div>
-      </div>
-    `}).join('');
+      </div>`
+    }).join('');
 
     document.getElementById('cartTotal').textContent = '$' + totalVenta.toLocaleString();
     document.getElementById('btnCobrar').disabled = false;
   }
 
-  // 5. MODAL DE COBRO Y VENTA
+  // 6. MODAL DE COBRO
   function abrirModalCobro() {
     document.getElementById('modalTotal').textContent = '$' + totalVenta.toLocaleString();
     document.getElementById('modalCobro').style.display = 'flex';
     document.getElementById('metodosPago').style.display = 'grid';
     document.getElementById('calcCambio').style.display = 'none';
-    document.getElementById('billeteInput').value = '';
-    document.getElementById('textoCambio').textContent = 'Cambio: $0';
+    document.getElementById('selectFiado').style.display = 'none';
+    cargarClientes(); // Asegurar que la lista esté fresca para fiar
   }
 
-  function cerrarModal() {
-    document.getElementById('modalCobro').style.display = 'none';
-  }
+  function cerrarModal() { document.getElementById('modalCobro').style.display = 'none'; }
 
   function seleccionarPago(metodo) {
+    document.getElementById('metodosPago').style.display = 'none';
     if (metodo === 'Efectivo') {
-      document.getElementById('metodosPago').style.display = 'none';
       document.getElementById('calcCambio').style.display = 'block';
+      document.getElementById('billeteInput').value = '';
+      document.getElementById('textoCambio').textContent = 'Cambio: $0';
       document.getElementById('billeteInput').focus();
+    } else if (metodo === 'Fiado') {
+      document.getElementById('selectFiado').style.display = 'block';
     }
   }
 
@@ -298,34 +376,41 @@
     const cambio = billete - totalVenta;
     const txt = document.getElementById('textoCambio');
     if (cambio < 0) { txt.textContent = 'Falta dinero'; txt.style.color = 'var(--danger)'; } 
-    else { txt.textContent = 'Cambio a devolver: $' + cambio.toLocaleString(); txt.style.color = 'var(--success)'; }
+    else { txt.textContent = 'Cambio: $' + cambio.toLocaleString(); txt.style.color = 'var(--success)'; }
   }
 
   async function procesarVenta(metodo) {
-    // 1. Guardar en tabla ventas
-    const { error } = await supabase.from('ventas').insert([{
-      total_venta: totalVenta,
-      ganancia_neta: gananciaVenta,
-      metodo_pago: metodo,
-      articulos: carrito
-    }]);
+    let clienteId = null;
 
+    // Si es fiado, validar que escogió a alguien
+    if (metodo === 'Fiado') {
+      clienteId = document.getElementById('clienteSelect').value;
+      if (!clienteId) return alert('Debes seleccionar a un cliente para fiarle');
+    }
+
+    // 1. Guardar Venta
+    const { error } = await supabase.from('ventas').insert([{
+      total_venta: totalVenta, ganancia_neta: gananciaVenta,
+      metodo_pago: metodo, cliente_id: clienteId, articulos: carrito
+    }]);
     if (error) return alert('Error al registrar venta');
 
-    // 2. Descontar stock del inventario
+    // 2. Descontar Inventario
     for (const item of carrito) {
-      const nuevoStock = item.stock - item.cantidad;
-      await supabase.from('productos').update({ stock: nuevoStock }).eq('id', item.id);
+      await supabase.from('productos').update({ stock: item.stock - item.cantidad }).eq('id', item.id);
+    }
+
+    // 3. Sumar deuda si es fiado
+    if (metodo === 'Fiado') {
+      const clienteInfo = clientes.find(c => c.id === clienteId);
+      const nuevaDeuda = clienteInfo.saldo_pendiente + totalVenta;
+      await supabase.from('clientes_fiado').update({ saldo_pendiente: nuevaDeuda }).eq('id', clienteId);
     }
 
     alert('✅ Venta registrada con éxito');
-    carrito = []; // Limpiar carrito
-    cerrarModal();
-    actualizarCarrito();
-    cargarProductos(); // Refrescar inventario
+    carrito = []; cerrarModal(); actualizarCarrito(); cargarProductos();
   }
 
-  // Iniciar
   cargarProductos();
 </script>
 </body>
