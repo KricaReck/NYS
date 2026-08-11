@@ -119,7 +119,6 @@
   .custom-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .custom-toast.error { background: var(--danger); }
   
-  /* MARGEN SUBTITLE */
   .margin-info { font-size: 12px; color: var(--text-muted); margin-top: 4px; margin-left: 2px; font-weight: 500; }
 </style>
 </head>
@@ -179,10 +178,10 @@
     <div class="cart-section" style="margin-bottom: 24px;">
       <h3 style="margin-bottom: 20px; color:var(--text-main);">📦 Registrar / Re-stock Producto</h3>
       
-      <!-- BÚSQUEDA Y AUTOCOMPLETADO AL RE-STOCK -->
       <div class="form-group">
         <label>Nombre del producto</label>
-        <input type="text" id="invNombre" placeholder="Ej: Coca Cola 1.5L" oninput="buscarYAutocompletar()">
+        <!-- SE AÑADIÓ LIST="productosExistentesList" AL INPUT -->
+        <input type="text" id="invNombre" list="productosExistentesList" placeholder="Ej: Coca Cola 1.5L" oninput="buscarYAutocompletar()">
         <datalist id="productosExistentesList"></datalist>
       </div>
       
@@ -209,7 +208,6 @@
         </div>
       </div>
       
-      <!-- INDICADOR SUBTITULADO DE MARGEN -->
       <div class="margin-info" id="invMargenTexto">Margen estimado: -- %</div>
 
       <div style="display: flex; gap: 12px; margin-top: 16px;">
@@ -317,7 +315,6 @@
   function guardarTurno(vendedor) { localStorage.setItem('turnoActivo', vendedor); }
   function cargarTurno() { const turnoGuardado = localStorage.getItem('turnoActivo'); if (turnoGuardado) document.getElementById('vendedorSelect').value = turnoGuardado; }
 
-  // ESCUCHADOR ONLINE / OFFLINE
   window.addEventListener('online', sincronizarVentasOffline);
 
   async function verificarSesion() {
@@ -408,6 +405,14 @@
     if (data) { 
       productos = data; 
       filtrarProductos(); 
+      actualizarDatalistProductos(); // PUEBLA LA LISTA DE AUTOCOMPLETADO
+    }
+  }
+  
+  function actualizarDatalistProductos() {
+    const datalist = document.getElementById('productosExistentesList');
+    if (datalist) {
+      datalist.innerHTML = productos.map(p => `<option value="${p.nombre}">`).join('');
     }
   }
 
@@ -442,7 +447,6 @@
     renderProductos(productosFiltrados);
   }
 
-  // RE-STOCK AUTOCOMPLETADO Y MARGEN DE GANANCIA
   function buscarYAutocompletar() {
     const nombreIngresado = document.getElementById('invNombre').value.trim().toLowerCase();
     const coincide = productos.find(p => p.nombre.toLowerCase() === nombreIngresado);
@@ -483,7 +487,6 @@
     const existente = productos.find(p => p.nombre.toLowerCase() === nombre.toLowerCase());
 
     if (existente) {
-      // Re-stock: sumar al stock existente y actualizar precios/categoría
       const nuevoStock = existente.stock + stockAdicional;
       const { error } = await db.from('productos').update({
         stock: nuevoStock,
@@ -496,7 +499,6 @@
       if (error) return customAlert('SQL Error: ' + error.message, true);
       customAlert(`Stock actualizado (+${stockAdicional} un)`);
     } else {
-      // Producto nuevo
       const { error } = await db.from('productos').insert([{ 
         nombre, precio_compra: compra, precio_venta: venta, stock: stockAdicional, fecha_vencimiento: vence, categoria 
       }]);
@@ -644,7 +646,6 @@
     else { txt.textContent = 'Vueltas: $' + cambio.toLocaleString(); txt.style.color = 'var(--success)'; }
   }
 
-  // PROCESAMIENTO CON SOPORTE OFFLINE NATIVO
   async function procesarVenta(metodo) {
     let clienteId = null; const vendedorSeleccionado = document.getElementById('vendedorSelect').value;
     if (metodo === 'Fiado') {
@@ -662,13 +663,11 @@
       fecha: new Date().toISOString()
     };
 
-    // Descontar inventario local inmediatamente para evitar sobreventas
     for (const item of carrito) {
       const prod = productos.find(p => p.id === item.id);
       if (prod) prod.stock -= item.cantidad;
     }
 
-    // Comprobar estado de la red
     if (!navigator.onLine) {
       guardarVentaOffline(objetoVenta);
       customAlert('📶 Venta guardada sin conexión (Offline)');
@@ -676,7 +675,6 @@
       return;
     }
 
-    // Si hay internet, intentar guardar en Supabase
     const { error } = await db.from('ventas').insert([objetoVenta]);
     
     if (error) {
@@ -705,7 +703,6 @@
     renderProductos(productos);
   }
 
-  // FUNCIONES DE COLA OFFLINE
   function guardarVentaOffline(venta) {
     const cola = JSON.parse(localStorage.getItem('colaVentasOffline') || '[]');
     cola.push(venta);
