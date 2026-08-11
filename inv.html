@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escáner de Inventario</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-xl font-bold mb-4 text-center text-gray-800">Control de Inventario</h1>
+        
+        <!-- Contenedor de la cámara -->
+        <div id="reader" class="w-full mb-4"></div>
+        
+        <!-- Controles -->
+        <div class="flex gap-2 mb-4">
+            <button id="start-btn" onclick="startScanner()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex-1 font-semibold">Iniciar Cámara</button>
+            <button id="stop-btn" onclick="stopScanner()" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 flex-1 hidden font-semibold">Detener</button>
+        </div>
+
+        <!-- Tabla de Inventario -->
+        <h2 class="text-md font-semibold mb-2 text-gray-700">Artículos Escaneados</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full border-collapse border border-gray-300 text-sm mb-4">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="border border-gray-300 p-2">Código</th>
+                        <th class="border border-gray-300 p-2">Hora</th>
+                        <th class="border border-gray-300 p-2">Cant.</th>
+                    </tr>
+                </thead>
+                <tbody id="inventory-table">
+                    <!-- Filas dinámicas -->
+                </tbody>
+            </table>
+        </div>
+        
+        <button onclick="exportCSV()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full font-semibold">Exportar a CSV</button>
+    </div>
+
+    <script>
+        let html5QrCode;
+        const inventory = {};
+
+        function startScanner() {
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+            
+            html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
+                handleScan(decodedText);
+            }, (error) => {
+                // Errores de lectura por cuadro ignorados para mantener fluidez
+            }).then(() => {
+                document.getElementById('start-btn').classList.add('hidden');
+                document.getElementById('stop-btn').classList.remove('hidden');
+            }).catch(err => {
+                alert("No se pudo acceder a la cámara: " + err);
+            });
+        }
+
+        function stopScanner() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    document.getElementById('start-btn').classList.remove('hidden');
+                    document.getElementById('stop-btn').classList.add('hidden');
+                }).catch(err => console.log(err));
+            }
+        }
+
+        function handleScan(code) {
+            const now = new Date().toLocaleTimeString();
+            if (inventory[code]) {
+                inventory[code].quantity += 1;
+                inventory[code].time = now;
+            } else {
+                inventory[code] = { code, time: now, quantity: 1 };
+            }
+            updateTable();
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('inventory-table');
+            tbody.innerHTML = '';
+            for (let code in inventory) {
+                const item = inventory[code];
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="border border-gray-300 p-2">${item.code}</td>
+                        <td class="border border-gray-300 p-2">${item.time}</td>
+                        <td class="border border-gray-300 p-2 text-center font-bold">${item.quantity}</td>
+                    </tr>
+                `;
+            }
+        }
+
+        function exportCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,Codigo,Hora,Cantidad\n";
+            for (let code in inventory) {
+                const item = inventory[code];
+                csvContent += `${item.code},${item.time},${item.quantity}\n`;
+            }
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "inventario.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
