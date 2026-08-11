@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario Cigarrería</title>
+    <title>Inventario Cigarreria</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 </head>
@@ -13,12 +13,13 @@
         <p id="status-msg" class="text-sm text-center text-gray-500 mb-4">Escanea un código de barras</p>
         
         <!-- Contenedor de la cámara -->
-        <div id="reader" class="w-full mb-4"></div>
+        <div id="reader" class="w-full mb-4 rounded-lg overflow-hidden border"></div>
         
-        <!-- Controles -->
-        <div class="flex gap-2 mb-4">
-            <button id="start-btn" onclick="startScanner()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex-1 font-semibold">Iniciar Cámara</button>
-            <button id="stop-btn" onclick="stopScanner()" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 flex-1 hidden font-semibold">Detener</button>
+        <!-- Controles de Cámara y Flash -->
+        <div class="grid grid-cols-2 gap-2 mb-2">
+            <button id="start-btn" onclick="startScanner()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-semibold text-sm">Iniciar Cámara</button>
+            <button id="stop-btn" onclick="stopScanner()" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 hidden font-semibold text-sm">Detener</button>
+            <button id="flash-btn" onclick="toggleFlash()" class="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600 hidden font-semibold text-sm">Flash: OFF</button>
         </div>
 
         <!-- MODAL / FORMULARIO PARA PRODUCTO NUEVO -->
@@ -32,7 +33,7 @@
                 <input type="number" id="prod-sell" placeholder="P. Venta" class="w-1/2 border p-2 rounded text-sm">
             </div>
             <input type="number" id="prod-qty" placeholder="Cantidad inicial" value="1" class="w-full border p-2 mb-2 rounded text-sm">
-            <button onclick="saveNewProduct()" class="bg-blue-600 text-white w-full py-2 rounded font-semibold text-sm">Guardar y Continuar Escaneando</button>
+            <button onclick="saveNewProduct()" class="bg-blue-600 text-white w-full py-2 rounded font-semibold text-sm">Guardar y Continuar</button>
         </div>
 
         <!-- Resumen Rápido -->
@@ -65,48 +66,98 @@
         let lastScannedCode = "";
         let isProcessing = false;
         let pendingCode = "";
+        let flashOn = false;
+        let track = null;
 
         updateTable();
 
         function startScanner() {
             html5QrCode = new Html5Qrcode("reader");
-            const config = { fps: 15, qrbox: { width: 250, height: 150 } };
             
-            html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
-                if (isProcessing) return; // Evita lecturas encimadas
-                
-                // Bloqueo temporal para evitar conteo múltiple del mismo código seguidos
+            // Configuración optimizada para alta precisión en códigos de barras comerciales
+            const config = { 
+                fps: 20, 
+                qrbox: { width: 280, height: 140 },
+                aspectRatio: 1.0,
+                formatsToSupport: [ 
+                    Html5QrcodeSupportedFormats.EAN_13, 
+                    Html5QrcodeSupportedFormats.EAN_8, 
+                    Html5QrcodeSupportedFormats.UPC_A, 
+                    Html5QrcodeSupportedFormats.UPC_E, 
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.QR_CODE 
+                ]
+            };
+            
+            // Forzar uso de cámara trasera con preferencia de enfoque continuo si el hardware lo soporta
+            const cameraConfig = { 
+                facingMode: "environment",
+                advanced: [{ focusMode: "continuous" }]
+            };
+
+            html5QrCode.start(cameraConfig, config, (decodedText) => {
+                if (isProcessing) return; 
                 if (decodedText === lastScannedCode) return;
 
                 handleScan(decodedText);
             }, () => {}).then(() => {
                 document.getElementById('start-btn').classList.add('hidden');
                 document.getElementById('stop-btn').classList.remove('hidden');
+                document.getElementById('flash-btn').classList.remove('hidden');
+                
+                // Intentar capturar el track de video para controlar el flash físico
+                try {
+                    const videoTrack = html5QrCode.getRunningTrack();
+                    if (videoTrack) track = videoTrack;
+                } catch(e) { console.log("Flash no soportado en este navegador", e); }
             }).catch(err => alert("Error de cámara: " + err));
         }
 
         function stopScanner() {
             if (html5QrCode) {
+                // Apagar flash antes de detener por seguridad
+                if (flashOn) toggleFlash();
+                
                 html5QrCode.stop().then(() => {
                     document.getElementById('start-btn').classList.remove('hidden');
                     document.getElementById('stop-btn').classList.add('hidden');
+                    document.getElementById('flash-btn').classList.add('hidden');
                 });
+            }
+        }
+
+        function toggleFlash() {
+            if (!track) {
+                try {
+                    track = html5QrCode.getRunningTrack();
+                } catch(e) {}
+            }
+            
+            if (track) {
+                flashOn = !flashOn;
+                track.applyConstraints({
+                    advanced: [{ torch: flashOn }]
+                }).then(() => {
+                    const btn = document.getElementById('flash-btn');
+                    btn.innerText = flashOn ? "Flash: ON" : "Flash: OFF";
+                    btn.className = flashOn ? "bg-amber-600 text-white px-4 py-2 rounded font-semibold text-sm col-span-2" : "bg-amber-500 text-white px-4 py-2 rounded font-semibold text-sm";
+                }).catch(err => alert("Tu dispositivo o navegador no soporta el control del flash."));
+            } else {
+                alert("La cámara no está activa o no soporta el flash.");
             }
         }
 
         function handleScan(code) {
             lastScannedCode = code;
-            // Limpia el bloqueo de lectura repetida despues de 3 segundos
-            setTimeout(() => { lastScannedCode = ""; }, 3000);
+            // Bloqueo aumentado a 5 segundos exactos
+            setTimeout(() => { lastScannedCode = ""; }, 5000);
 
             if (inventory[code]) {
-                // Si ya existe, solo suma 1 de forma ágil
                 inventory[code].quantity += 1;
                 saveStorage();
                 updateTable();
                 showStatus(`+1 Agregado a: ${inventory[code].name}`, "text-green-600");
             } else {
-                // Si no existe, pausa el escáner y abre el formulario de registro
                 isProcessing = true;
                 pendingCode = code;
                 stopScanner();
@@ -140,7 +191,6 @@
             saveStorage();
             updateTable();
 
-            // Limpiar formulario y ocultar modal
             document.getElementById('prod-name').value = '';
             document.getElementById('prod-cat').value = '';
             document.getElementById('prod-buy').value = '';
@@ -149,7 +199,7 @@
             document.getElementById('product-modal').classList.add('hidden');
             
             isProcessing = false;
-            startScanner(); // Reanuda la cámara automáticamente
+            startScanner(); 
         }
 
         function showStatus(text, colorClass) {
@@ -159,7 +209,7 @@
             setTimeout(() => {
                 msg.innerText = "Escanea un código de barras";
                 msg.className = "text-sm text-center text-gray-500 mb-4";
-            }, 2500);
+            }, 3000);
         }
 
         function updateTable() {
