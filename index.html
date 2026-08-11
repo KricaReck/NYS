@@ -107,11 +107,9 @@
   .bill-btn { background: var(--bg-main); border: 2px solid var(--border); padding: 14px 10px; border-radius: 12px; font-weight: 700; color: var(--text-main); font-size: 15px; transition: all 0.2s;}
   .bill-btn:active { background: var(--border); transform: scale(0.97);}
   .bill-btn.exact { grid-column: span 2; background: var(--success-dark); color: white; border-color: var(--success-dark); }
-  .bill-btn.exact:active { background: var(--success); }
 
   .calc-change, .select-client { display: none; margin-top: 24px; animation: fadeIn 0.3s; }
   
-  /* INPUT VERDE REDISEÑADO PARA ENCAJAR EN PROPORCIÓN */
   .input-large.green { width: 100%; border: 2px solid var(--border); text-align: center; font-size: 16px; padding: 14px 10px; color: var(--text-main); background: var(--bg-main); border-radius: 12px; font-weight: 700; transition: all 0.2s;}
   .input-large.green:focus { border-color: var(--success-dark); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
   
@@ -120,6 +118,9 @@
   .custom-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); background: var(--success-dark); color: white; padding: 14px 28px; border-radius: 30px; font-weight: 600; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); opacity: 0; transition: all 0.3s; z-index: 9999; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.1);}
   .custom-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .custom-toast.error { background: var(--danger); }
+  
+  /* MARGEN SUBTITLE */
+  .margin-info { font-size: 12px; color: var(--text-muted); margin-top: 4px; margin-left: 2px; font-weight: 500; }
 </style>
 </head>
 <body>
@@ -176,8 +177,14 @@
 
   <div id="screen-inventario" class="screen">
     <div class="cart-section" style="margin-bottom: 24px;">
-      <h3 style="margin-bottom: 20px; color:var(--text-main);">📦 Registrar Producto</h3>
-      <div class="form-group"><label>Nombre del producto</label><input type="text" id="invNombre" placeholder="Ej: Coca Cola 1.5L"></div>
+      <h3 style="margin-bottom: 20px; color:var(--text-main);">📦 Registrar / Re-stock Producto</h3>
+      
+      <!-- BÚSQUEDA Y AUTOCOMPLETADO AL RE-STOCK -->
+      <div class="form-group">
+        <label>Nombre del producto</label>
+        <input type="text" id="invNombre" placeholder="Ej: Coca Cola 1.5L" oninput="buscarYAutocompletar()">
+        <datalist id="productosExistentesList"></datalist>
+      </div>
       
       <div class="form-group">
         <label>Categoría</label>
@@ -192,14 +199,24 @@
       </div>
 
       <div style="display: flex; gap: 12px;">
-        <div class="form-group" style="flex:1;"><label>Costo ($)</label><input type="number" id="invCompra" placeholder="3500"></div>
-        <div class="form-group" style="flex:1;"><label>Venta ($)</label><input type="number" id="invVenta" placeholder="4500"></div>
+        <div class="form-group" style="flex:1;">
+          <label>Costo ($)</label>
+          <input type="number" id="invCompra" placeholder="3500" oninput="calcularMargenEnvio()">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>Venta ($)</label>
+          <input type="number" id="invVenta" placeholder="4500" oninput="calcularMargenEnvio()">
+        </div>
       </div>
-      <div style="display: flex; gap: 12px;">
-        <div class="form-group" style="flex:1;"><label>Stock Inicial</label><input type="number" id="invStock" placeholder="12"></div>
+      
+      <!-- INDICADOR SUBTITULADO DE MARGEN -->
+      <div class="margin-info" id="invMargenTexto">Margen estimado: -- %</div>
+
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <div class="form-group" style="flex:1;"><label>Stock a Añadir</label><input type="number" id="invStock" placeholder="12"></div>
         <div class="form-group" style="flex:1;"><label>Vencimiento</label><input type="date" id="invVence"></div>
       </div>
-      <button class="btn-submit" onclick="guardarProducto()">Guardar en Base de Datos</button>
+      <button class="btn-submit" onclick="guardarProducto()">Guardar / Actualizar Producto</button>
     </div>
   </div>
 
@@ -300,6 +317,9 @@
   function guardarTurno(vendedor) { localStorage.setItem('turnoActivo', vendedor); }
   function cargarTurno() { const turnoGuardado = localStorage.getItem('turnoActivo'); if (turnoGuardado) document.getElementById('vendedorSelect').value = turnoGuardado; }
 
+  // ESCUCHADOR ONLINE / OFFLINE
+  window.addEventListener('online', sincronizarVentasOffline);
+
   async function verificarSesion() {
     const { data: { session } } = await db.auth.getSession();
     if (session) {
@@ -316,7 +336,7 @@
         document.getElementById('nav-inventario').style.display = 'flex';
         document.getElementById('nav-balance').style.display = 'flex';
       }
-      cargarProductos(); cargarTurno();
+      cargarProductos(); cargarTurno(); sincronizarVentasOffline();
     } else {
       document.getElementById('login-container').style.display = 'flex';
       document.getElementById('app-container').style.display = 'none';
@@ -385,7 +405,10 @@
   async function cargarProductos() {
     const { data, error } = await db.from('productos').select('*').order('nombre');
     if (error) { console.error(error); return customAlert('Error al cargar inventario', true); }
-    if (data) { productos = data; filtrarProductos(); }
+    if (data) { 
+      productos = data; 
+      filtrarProductos(); 
+    }
   }
 
   function renderProductos(lista) {
@@ -419,22 +442,73 @@
     renderProductos(productosFiltrados);
   }
 
+  // RE-STOCK AUTOCOMPLETADO Y MARGEN DE GANANCIA
+  function buscarYAutocompletar() {
+    const nombreIngresado = document.getElementById('invNombre').value.trim().toLowerCase();
+    const coincide = productos.find(p => p.nombre.toLowerCase() === nombreIngresado);
+
+    if (coincide) {
+      if(coincide.categoria) document.getElementById('invCategoria').value = coincide.categoria;
+      document.getElementById('invCompra').value = coincide.precio_compra;
+      document.getElementById('invVenta').value = coincide.precio_venta;
+      calcularMargenEnvio();
+    }
+  }
+
+  function calcularMargenEnvio() {
+    const compra = parseFloat(document.getElementById('invCompra').value) || 0;
+    const venta = parseFloat(document.getElementById('invVenta').value) || 0;
+    const txt = document.getElementById('invMargenTexto');
+
+    if (venta > 0 && compra >= 0) {
+      const margen = ((venta - compra) / venta) * 100;
+      txt.textContent = `Margen estimado: ${margen.toFixed(1)}% (Ganancia: $${(venta - compra).toLocaleString()})`;
+      txt.style.color = margen < 15 ? 'var(--danger)' : 'var(--text-muted)';
+    } else {
+      txt.textContent = 'Margen estimado: -- %';
+      txt.style.color = 'var(--text-muted)';
+    }
+  }
+
   async function guardarProducto() {
-    const nombre = document.getElementById('invNombre').value;
+    const nombre = document.getElementById('invNombre').value.trim();
     const compra = parseInt(document.getElementById('invCompra').value);
     const venta = parseInt(document.getElementById('invVenta').value);
-    const stock = parseInt(document.getElementById('invStock').value);
+    const stockAdicional = parseInt(document.getElementById('invStock').value) || 0;
     const vence = document.getElementById('invVence').value || null;
     const categoria = document.getElementById('invCategoria').value;
 
-    if(!nombre || !compra || !venta) return customAlert('Faltan datos obligatorios', true);
-    
-    const { error } = await db.from('productos').insert([{ nombre, precio_compra: compra, precio_venta: venta, stock, fecha_vencimiento: vence, categoria: categoria }]);
-    if (error) { console.error(error); return customAlert('Error SQL: ' + error.message, true); }
+    if(!nombre || isNaN(compra) || isNaN(venta)) return customAlert('Faltan datos obligatorios', true);
 
-    customAlert('Producto guardado exitosamente');
-    document.getElementById('invNombre').value = ''; document.getElementById('invCompra').value = '';
-    document.getElementById('invVenta').value = ''; document.getElementById('invStock').value = '';
+    const existente = productos.find(p => p.nombre.toLowerCase() === nombre.toLowerCase());
+
+    if (existente) {
+      // Re-stock: sumar al stock existente y actualizar precios/categoría
+      const nuevoStock = existente.stock + stockAdicional;
+      const { error } = await db.from('productos').update({
+        stock: nuevoStock,
+        precio_compra: compra,
+        precio_venta: venta,
+        categoria: categoria,
+        fecha_vencimiento: vence || existente.fecha_vencimiento
+      }).eq('id', existente.id);
+
+      if (error) return customAlert('SQL Error: ' + error.message, true);
+      customAlert(`Stock actualizado (+${stockAdicional} un)`);
+    } else {
+      // Producto nuevo
+      const { error } = await db.from('productos').insert([{ 
+        nombre, precio_compra: compra, precio_venta: venta, stock: stockAdicional, fecha_vencimiento: vence, categoria 
+      }]);
+      if (error) return customAlert('SQL Error: ' + error.message, true);
+      customAlert('Producto nuevo registrado');
+    }
+
+    document.getElementById('invNombre').value = ''; 
+    document.getElementById('invCompra').value = '';
+    document.getElementById('invVenta').value = ''; 
+    document.getElementById('invStock').value = '';
+    document.getElementById('invMargenTexto').textContent = 'Margen estimado: -- %';
     cargarProductos();
   }
 
@@ -570,32 +644,108 @@
     else { txt.textContent = 'Vueltas: $' + cambio.toLocaleString(); txt.style.color = 'var(--success)'; }
   }
 
+  // PROCESAMIENTO CON SOPORTE OFFLINE NATIVO
   async function procesarVenta(metodo) {
     let clienteId = null; const vendedorSeleccionado = document.getElementById('vendedorSelect').value;
     if (metodo === 'Fiado') {
       clienteId = document.getElementById('clienteSelect').value;
       if (!clienteId) return customAlert('Selecciona un cliente para fiar', true);
     }
-    
-    const { error } = await db.from('ventas').insert([{ total_venta: totalVenta, ganancia_neta: gananciaVenta, metodo_pago: metodo, cliente_id: clienteId, vendedor: vendedorSeleccionado, articulos: carrito }]);
+
+    const objetoVenta = {
+      total_venta: totalVenta, 
+      ganancia_neta: gananciaVenta, 
+      metodo_pago: metodo, 
+      cliente_id: clienteId, 
+      vendedor: vendedorSeleccionado, 
+      articulos: carrito,
+      fecha: new Date().toISOString()
+    };
+
+    // Descontar inventario local inmediatamente para evitar sobreventas
+    for (const item of carrito) {
+      const prod = productos.find(p => p.id === item.id);
+      if (prod) prod.stock -= item.cantidad;
+    }
+
+    // Comprobar estado de la red
+    if (!navigator.onLine) {
+      guardarVentaOffline(objetoVenta);
+      customAlert('📶 Venta guardada sin conexión (Offline)');
+      finalizarFlujoVenta(vendedorSeleccionado);
+      return;
+    }
+
+    // Si hay internet, intentar guardar en Supabase
+    const { error } = await db.from('ventas').insert([objetoVenta]);
     
     if (error) {
-      console.error('Error al insertar en ventas:', error);
-      return customAlert('SQL Error: ' + error.message, true); 
+      console.warn('Falla de red detectada, guardando en cola offline:', error);
+      guardarVentaOffline(objetoVenta);
+      customAlert('📶 Venta en cola offline (Red inestable)');
+    } else {
+      for (const item of carrito) { 
+        await db.from('productos').update({ stock: item.stock }).eq('id', item.id); 
+      }
+      if (metodo === 'Fiado') {
+        const clienteInfo = clientes.find(c => c.id === clienteId); 
+        const nuevaDeuda = clienteInfo.saldo_pendiente + totalVenta;
+        await db.from('clientes_fiado').update({ saldo_pendiente: nuevaDeuda }).eq('id', clienteId);
+      }
+      customAlert('Venta realizada (' + vendedorSeleccionado + ')');
     }
 
-    for (const item of carrito) { 
-      const { error: errProd } = await db.from('productos').update({ stock: item.stock - item.cantidad }).eq('id', item.id); 
-      if (errProd) console.error('Error al descontar stock:', errProd);
+    finalizarFlujoVenta(vendedorSeleccionado);
+  }
+
+  function finalizarFlujoVenta(vendedor) {
+    carrito = []; 
+    cerrarModal(); 
+    actualizarCarrito(); 
+    renderProductos(productos);
+  }
+
+  // FUNCIONES DE COLA OFFLINE
+  function guardarVentaOffline(venta) {
+    const cola = JSON.parse(localStorage.getItem('colaVentasOffline') || '[]');
+    cola.push(venta);
+    localStorage.setItem('colaVentasOffline', JSON.stringify(cola));
+  }
+
+  async function sincronizarVentasOffline() {
+    if (!navigator.onLine) return;
+    const cola = JSON.parse(localStorage.getItem('colaVentasOffline') || '[]');
+    if (cola.length === 0) return;
+
+    customAlert('🔄 Sincronizando ventas pendientes...');
+    const ventasExitosas = [];
+
+    for (let i = 0; i < cola.length; i++) {
+      const v = cola[i];
+      const { error } = await db.from('ventas').insert([{
+        total_venta: v.total_venta, ganancia_neta: v.ganancia_neta,
+        metodo_pago: v.metodo_pago, cliente_id: v.cliente_id,
+        vendedor: v.vendedor, articulos: v.articulos, fecha: v.fecha
+      }]);
+
+      if (!error) {
+        ventasExitosas.push(i);
+        for (const item of v.articulos) {
+          const { data: prod } = await db.from('productos').select('stock').eq('id', item.id).single();
+          if (prod) {
+            await db.from('productos').update({ stock: prod.stock - item.cantidad }).eq('id', item.id);
+          }
+        }
+      }
     }
 
-    if (metodo === 'Fiado') {
-      const clienteInfo = clientes.find(c => c.id === clienteId); const nuevaDeuda = clienteInfo.saldo_pendiente + totalVenta;
-      await db.from('clientes_fiado').update({ saldo_pendiente: nuevaDeuda }).eq('id', clienteId);
+    const colaRestante = cola.filter((_, idx) => !ventasExitosas.includes(idx));
+    localStorage.setItem('colaVentasOffline', JSON.stringify(colaRestante));
+    
+    if (ventasExitosas.length > 0) {
+      customAlert(`✅ ${ventasExitosas.length} ventas sincronizadas`);
+      cargarProductos();
     }
-
-    customAlert('Operación exitosa (' + vendedorSeleccionado + ')');
-    carrito = []; cerrarModal(); actualizarCarrito(); cargarProductos();
   }
 </script>
 </body>
