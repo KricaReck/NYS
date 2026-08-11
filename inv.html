@@ -19,7 +19,7 @@
         <div class="grid grid-cols-2 gap-2 mb-2">
             <button id="start-btn" onclick="startScanner()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-semibold text-sm">Iniciar Cámara</button>
             <button id="stop-btn" onclick="stopScanner()" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 hidden font-semibold text-sm">Detener</button>
-            <button id="flash-btn" onclick="toggleFlash()" class="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600 hidden font-semibold text-sm">Flash: OFF</button>
+            <button id="flash-btn" onclick="toggleFlash()" class="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600 hidden font-semibold text-sm col-span-2">Flash: OFF</button>
         </div>
 
         <!-- MODAL / FORMULARIO PARA PRODUCTO NUEVO -->
@@ -67,7 +67,6 @@
         let isProcessing = false;
         let pendingCode = "";
         let flashOn = false;
-        let track = null;
 
         updateTable();
 
@@ -88,7 +87,6 @@
                 ]
             };
             
-            // Corrección: pasamos directamente el string de la cámara trasera para evitar errores de validación
             html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
                 if (isProcessing) return; 
                 if (decodedText === lastScannedCode) return;
@@ -97,18 +95,27 @@
             }, () => {}).then(() => {
                 document.getElementById('start-btn').classList.add('hidden');
                 document.getElementById('stop-btn').classList.remove('hidden');
-                document.getElementById('flash-btn').classList.remove('hidden');
                 
-                try {
-                    const videoTrack = html5QrCode.getRunningTrack();
-                    if (videoTrack) track = videoTrack;
-                } catch(e) { console.log("Flash no soportado", e); }
+                // Verificar si el dispositivo soporta flash mediante la API interna de la librería
+                setTimeout(() => {
+                    try {
+                        const capabilities = html5QrCode.getRunningTrackCameraCapabilities();
+                        if (capabilities.supportsTorch && capabilities.supportsTorch()) {
+                            document.getElementById('flash-btn').classList.remove('hidden');
+                        }
+                    } catch(e) {
+                        console.log("No se pudo comprobar el flash", e);
+                    }
+                }, 500);
+
             }).catch(err => alert("Error de cámara: " + err));
         }
 
         function stopScanner() {
             if (html5QrCode) {
-                if (flashOn) toggleFlash();
+                flashOn = false;
+                document.getElementById('flash-btn').innerText = "Flash: OFF";
+                document.getElementById('flash-btn').className = "bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600 hidden font-semibold text-sm col-span-2";
                 
                 html5QrCode.stop().then(() => {
                     document.getElementById('start-btn').classList.remove('hidden');
@@ -119,29 +126,30 @@
         }
 
         function toggleFlash() {
-            if (!track) {
-                try {
-                    track = html5QrCode.getRunningTrack();
-                } catch(e) {}
-            }
-            
-            if (track) {
+            try {
+                const torchControl = html5QrCode.getRunningTrackCameraCapabilities().torchFeature();
                 flashOn = !flashOn;
-                track.applyConstraints({
-                    advanced: [{ torch: flashOn }]
-                }).then(() => {
+                torchControl.apply(flashOn).then(() => {
                     const btn = document.getElementById('flash-btn');
-                    btn.innerText = flashOn ? "Flash: ON" : "Flash: OFF";
-                    btn.className = flashOn ? "bg-amber-600 text-white px-4 py-2 rounded font-semibold text-sm col-span-2" : "bg-amber-500 text-white px-4 py-2 rounded font-semibold text-sm";
-                }).catch(err => alert("Tu dispositivo o navegador no soporta el control del flash."));
-            } else {
-                alert("La cámara no está activa o no soporta el flash.");
+                    if (flashOn) {
+                        btn.innerText = "Flash: ON";
+                        btn.className = "bg-amber-600 text-white px-4 py-2 rounded font-semibold text-sm col-span-2 ring-2 ring-amber-300";
+                    } else {
+                        btn.innerText = "Flash: OFF";
+                        btn.className = "bg-amber-500 text-white px-4 py-2 rounded font-semibold text-sm col-span-2";
+                    }
+                }).catch(err => {
+                    alert("No se pudo encender el flash.");
+                    flashOn = !flashOn;
+                });
+            } catch(err) {
+                alert("La cámara no está activa o no soporta el flash en este navegador.");
             }
         }
 
         function handleScan(code) {
             lastScannedCode = code;
-            // Bloqueo configurado en 5 segundos
+            // Bloqueo configurado en 5 segundos exactos
             setTimeout(() => { lastScannedCode = ""; }, 5000);
 
             if (inventory[code]) {
