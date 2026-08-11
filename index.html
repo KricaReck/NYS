@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Cigarrería NyS</title>
+
+<!-- ETIQUETAS PARA PANTALLA COMPLETA (NATIVE APP FEEL) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f172a">
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -24,15 +31,14 @@
   .login-card { background: var(--bg-card); padding: 40px 24px; border-radius: 24px; width: 100%; max-width: 400px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); border: 1px solid var(--border); }
   .login-card h2 { text-align: center; margin-bottom: 6px; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
   
-  /* BRANDING LOGIN AJUSTADO */
-  .login-card p { text-align: center; color: var(--text-muted); font-weight: 500; margin-bottom: 28px; font-size: 13px; letter-spacing: 0.2px; }
+  /* BRANDING LOGIN EN MAYÚSCULA Y MORADO */
+  .login-card p { text-align: center; color: var(--primary); font-weight: 700; margin-bottom: 28px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;}
   
   .login-error { color: var(--danger); font-size: 14px; text-align: center; margin-bottom: 12px; min-height: 20px; font-weight: 600;}
 
   header { background: var(--bg-card); padding: 16px 20px 20px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
   header h1 { font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 8px; letter-spacing: -0.5px; margin-bottom: 2px;}
   
-  /* BRANDING HEADER AJUSTADO */
   header .branding { font-size: 11px; color: rgba(255, 255, 255, 0.7); font-weight: 500; letter-spacing: 0.2px; }
   
   .btn-logout { background: var(--bg-main); border: 1px solid var(--border); color: var(--text-main); padding: 8px 14px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 13px; }
@@ -155,7 +161,7 @@
     <h2 style="display:flex; justify-content:center; align-items:center; gap:8px;">
       <span style="font-size:32px;">🍾</span> Cigarrería NyS
     </h2>
-    <p>Desarrollado por Grupo KricaReck S.A.S.</p>
+    <p>POS SYSTEM BY GRUPO KRICARECK</p>
     <div class="login-error" id="loginError"></div>
     <div class="form-group"><label>Código de Operador</label><input type="email" id="loginEmail" placeholder="ej. 1@caja.com"></div>
     <div class="form-group"><label>PIN / Contraseña</label><input type="password" id="loginPassword" placeholder="••••••••"></div>
@@ -167,7 +173,7 @@
   <header>
     <div style="display: flex; flex-direction: column;">
       <h1 id="headerTitle">🍾 Cigarrería NyS</h1>
-      <span class="branding">Desarrollado por Grupo KricaReck S.A.S.</span>
+      <span class="branding">Desarrollado por Grupo KricaReck</span>
     </div>
     <button class="btn-logout" onclick="cerrarSesion()">Cerrar Caja</button>
   </header>
