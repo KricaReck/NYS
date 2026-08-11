@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario Cigarreria</title>
+    <title>Inventario NyS by KricaReck</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 </head>
@@ -16,7 +16,7 @@
         <div id="reader" class="w-full mb-4 rounded-lg overflow-hidden border"></div>
         
         <!-- Controles de Cámara y Flash -->
-        <div class="grid grid-cols-2 gap-2 mb-2">
+        <div class="grid grid-cols-2 gap-2 mb-4">
             <button id="start-btn" onclick="startScanner()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-semibold text-sm">Iniciar Cámara</button>
             <button id="stop-btn" onclick="stopScanner()" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 hidden font-semibold text-sm">Detener</button>
             <button id="flash-btn" onclick="toggleFlash()" class="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600 hidden font-semibold text-sm col-span-2">Flash: OFF</button>
@@ -36,19 +36,36 @@
             <button onclick="saveNewProduct()" class="bg-blue-600 text-white w-full py-2 rounded font-semibold text-sm">Guardar y Continuar</button>
         </div>
 
+        <!-- MODAL PARA EDITAR PRODUCTO EXISTENTE -->
+        <div id="edit-modal" class="hidden bg-blue-50 border border-blue-300 p-4 rounded-lg mb-4">
+            <h2 class="font-bold text-blue-800 mb-2">Editar Producto</h2>
+            <input type="hidden" id="edit-code">
+            <input type="text" id="edit-name" placeholder="Nombre" class="w-full border p-2 mb-2 rounded text-sm">
+            <input type="text" id="edit-cat" placeholder="Categoría" class="w-full border p-2 mb-2 rounded text-sm">
+            <div class="flex gap-2 mb-2">
+                <input type="number" id="edit-buy" placeholder="P. Compra" class="w-1/2 border p-2 rounded text-sm">
+                <input type="number" id="edit-sell" placeholder="P. Venta" class="w-1/2 border p-2 rounded text-sm">
+            </div>
+            <input type="number" id="edit-qty" placeholder="Cantidad" class="w-full border p-2 mb-2 rounded text-sm">
+            <div class="flex gap-2">
+                <button onclick="updateEditedProduct()" class="bg-green-600 text-white w-full py-2 rounded font-semibold text-sm">Actualizar</button>
+                <button onclick="closeEditModal()" class="bg-gray-400 text-white w-full py-2 rounded font-semibold text-sm">Cancelar</button>
+            </div>
+        </div>
+
         <!-- Resumen Rápido -->
         <div class="flex justify-between items-center mb-2">
             <h2 class="text-md font-semibold text-gray-700">Inventario Registrado</h2>
             <span id="total-items" class="text-sm bg-gray-200 px-2 py-1 rounded font-bold">0 refs</span>
         </div>
         
-        <div class="overflow-x-auto max-h-60 overflow-y-auto mb-4 border rounded">
+        <div class="overflow-x-auto max-h-72 overflow-y-auto mb-4 border rounded bg-white">
             <table class="w-full border-collapse text-sm">
                 <thead>
                     <tr class="bg-gray-200 sticky top-0">
                         <th class="p-2 text-left">Producto</th>
                         <th class="p-2 text-center">Cant.</th>
-                        <th class="p-2 text-right">P. Venta</th>
+                        <th class="p-2 text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="inventory-table">
@@ -67,6 +84,7 @@
         let isProcessing = false;
         let pendingCode = "";
         let flashOn = false;
+        let videoTrack = null;
 
         updateTable();
 
@@ -96,40 +114,49 @@
                 document.getElementById('start-btn').classList.add('hidden');
                 document.getElementById('stop-btn').classList.remove('hidden');
                 
-                // Verificar si el dispositivo soporta flash mediante la API interna de la librería
-                setTimeout(() => {
-                    try {
-                        const capabilities = html5QrCode.getRunningTrackCameraCapabilities();
-                        if (capabilities.supportsTorch && capabilities.supportsTorch()) {
+                // Capturar directamente el hardware track de video para el flash en Samsung / Android
+                try {
+                    const qrBoxElement = html5QrCode.getRunningTrack();
+                    if (qrBoxElement) {
+                        videoTrack = qrBoxElement;
+                        // Forzar validación de capacidad de antemano
+                        const capabilities = videoTrack.getCapabilities();
+                        if (capabilities && capabilities.torch) {
                             document.getElementById('flash-btn').classList.remove('hidden');
                         }
-                    } catch(e) {
-                        console.log("No se pudo comprobar el flash", e);
                     }
-                }, 500);
+                } catch(e) {
+                    console.log("Error obteniendo track para flash", e);
+                }
 
             }).catch(err => alert("Error de cámara: " + err));
         }
 
         function stopScanner() {
+            if (flashOn) toggleFlash(); // Apagar flash por seguridad al detener
+            
             if (html5QrCode) {
-                flashOn = false;
-                document.getElementById('flash-btn').innerText = "Flash: OFF";
-                document.getElementById('flash-btn').className = "bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600 hidden font-semibold text-sm col-span-2";
-                
                 html5QrCode.stop().then(() => {
                     document.getElementById('start-btn').classList.remove('hidden');
                     document.getElementById('stop-btn').classList.add('hidden');
                     document.getElementById('flash-btn').classList.add('hidden');
+                    videoTrack = null;
                 });
             }
         }
 
         function toggleFlash() {
-            try {
-                const torchControl = html5QrCode.getRunningTrackCameraCapabilities().torchFeature();
+            if (!videoTrack) {
+                try {
+                    videoTrack = html5QrCode.getRunningTrack();
+                } catch(e) {}
+            }
+
+            if (videoTrack) {
                 flashOn = !flashOn;
-                torchControl.apply(flashOn).then(() => {
+                videoTrack.applyConstraints({
+                    advanced: [{ torch: flashOn }]
+                }).then(() => {
                     const btn = document.getElementById('flash-btn');
                     if (flashOn) {
                         btn.innerText = "Flash: ON";
@@ -139,18 +166,17 @@
                         btn.className = "bg-amber-500 text-white px-4 py-2 rounded font-semibold text-sm col-span-2";
                     }
                 }).catch(err => {
-                    alert("No se pudo encender el flash.");
+                    alert("Tu dispositivo no permitió activar la linterna.");
                     flashOn = !flashOn;
                 });
-            } catch(err) {
-                alert("La cámara no está activa o no soporta el flash en este navegador.");
+            } else {
+                alert("La cámara no está activa.");
             }
         }
 
         function handleScan(code) {
             lastScannedCode = code;
-            // Bloqueo configurado en 5 segundos exactos
-            setTimeout(() => { lastScannedCode = ""; }, 5000);
+            setTimeout(() => { lastScannedCode = ""; }, 5000); // Bloqueo de 5 segundos
 
             if (inventory[code]) {
                 inventory[code].quantity += 1;
@@ -202,6 +228,71 @@
             startScanner(); 
         }
 
+        function editProduct(code) {
+            const item = inventory[code];
+            if (!item) return;
+
+            // Si la cámara está activa, detenerla temporalmente para editar con comodidad
+            if (html5QrCode && document.getElementById('stop-btn').classList.contains('hidden') == false) {
+                stopScanner();
+            }
+
+            document.getElementById('edit-code').value = code;
+            document.getElementById('edit-name').value = item.name;
+            document.getElementById('edit-cat').value = item.category || '';
+            document.getElementById('edit-buy').value = item.buyPrice || 0;
+            document.getElementById('edit-sell').value = item.sellPrice || 0;
+            document.getElementById('edit-qty').value = item.quantity;
+            
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        function updateEditedProduct() {
+            const code = document.getElementById('edit-code').value;
+            const name = document.getElementById('edit-name').value.trim();
+            const category = document.getElementById('edit-cat').value.trim();
+            const buyPrice = parseFloat(document.getElementById('edit-buy').value) || 0;
+            const sellPrice = parseFloat(document.getElementById('edit-sell').value) || 0;
+            const qty = parseInt(document.getElementById('edit-qty').value) || 0;
+
+            if (!name) {
+                alert("El nombre no puede estar vacío.");
+                return;
+            }
+
+            if (qty <= 0) {
+                if (!confirm("La cantidad es 0 o negativa. ¿Deseas eliminar este producto del inventario?")) {
+                    return;
+                }
+                delete inventory[code];
+            } else {
+                inventory[code] = {
+                    code: code,
+                    name: name,
+                    category: category,
+                    buyPrice: buyPrice,
+                    sellPrice: sellPrice,
+                    quantity: qty
+                };
+            }
+
+            saveStorage();
+            updateTable();
+            closeEditModal();
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+        }
+
+        function deleteProduct(code) {
+            if (confirm(`¿Estás seguro de eliminar el producto "${inventory[code].name}"?`)) {
+                delete inventory[code];
+                saveStorage();
+                updateTable();
+            }
+        }
+
         function showStatus(text, colorClass) {
             const msg = document.getElementById('status-msg');
             msg.innerText = text;
@@ -223,10 +314,13 @@
                     <tr class="border-b">
                         <td class="p-2">
                             <div class="font-bold">${item.name}</div>
-                            <div class="text-xs text-gray-500">${item.code}</div>
+                            <div class="text-xs text-gray-500">$${item.sellPrice} | Cód: ${item.code}</div>
                         </td>
                         <td class="p-2 text-center font-bold text-blue-600">${item.quantity}</td>
-                        <td class="p-2 text-right">$${item.sellPrice}</td>
+                        <td class="p-2 text-right">
+                            <button onclick="editProduct('${code}')" class="bg-amber-500 text-white px-2 py-1 rounded text-xs font-semibold mr-1">Editar</button>
+                            <button onclick="deleteProduct('${code}')" class="bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold">X</button>
+                        </td>
                     </tr>
                 `;
             }
