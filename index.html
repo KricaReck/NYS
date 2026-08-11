@@ -67,6 +67,12 @@
   .form-group input:focus, .form-group select:focus { border-color: var(--primary); }
   .btn-submit { background: var(--primary); color: white; width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 10px; cursor: pointer;}
 
+  /* BALANCE */
+  .balance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .balance-card { background: var(--white); padding: 16px; border-radius: 12px; border-left: 4px solid var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .balance-card h4 { font-size: 13px; color: var(--gray-dark); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; }
+  .balance-card p { font-size: 22px; font-weight: bold; color: var(--dark); }
+
   /* MODALS */
   .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: flex-end; z-index: 200; }
   .modal-content { background: var(--white); width: 100%; border-radius: 20px 20px 0 0; padding: 24px; animation: slideUp 0.3s; }
@@ -123,12 +129,13 @@
       
       <div class="cart-total"><span>Total:</span><span id="cartTotal">$0</span></div>
       
+      <!-- Select modificado con Sergio y Norma -->
       <div class="form-group" style="margin-bottom: 16px;">
         <label>¿Quién realiza la venta?</label>
         <select id="vendedorSelect">
-          <option value="Caja General">Caja General</option>
-          <option value="Carlos">Carlos</option>
-          <option value="Ana">Ana</option>
+          <option value="Sergio">Sergio</option>
+          <option value="Norma">Norma</option>
+          <option value="Otro Empleado">Otro Empleado</option>
         </select>
       </div>
 
@@ -165,6 +172,33 @@
     <div id="clientesList"></div>
   </div>
 
+  <!-- PANTALLA: BALANCE -->
+  <div id="screen-balance" class="screen">
+    <div class="balance-grid">
+      <div class="balance-card">
+        <h4>Ventas de Hoy</h4>
+        <p id="balVentas">$0</p>
+      </div>
+      <div class="balance-card" style="border-left-color: var(--success);">
+        <h4>Ganancia Limpia</h4>
+        <p id="balGanancia" style="color: var(--success);">$0</p>
+      </div>
+    </div>
+
+    <div class="cart-section" style="margin-top: 16px;">
+      <h3 style="margin-bottom: 12px;">Desglose de Hoy</h3>
+      <div class="cart-item"><span>💵 Efectivo en Caja</span><span id="balEfectivo" style="font-weight: bold;">$0</span></div>
+      <div class="cart-item"><span>📱 Nequi / Daviplata</span><span id="balNequi" style="font-weight: bold;">$0</span></div>
+      <div class="cart-item"><span>📓 Fiado Hoy</span><span id="balFiadoHoy" style="font-weight: bold;">$0</span></div>
+    </div>
+
+    <div class="balance-card" style="margin-top: 16px; border-left-color: var(--warning);">
+      <h4>Dinero en la Calle</h4>
+      <p id="balFiadoTotal" style="color: var(--warning);">$0</p>
+      <span style="font-size: 12px; color: var(--gray-dark);">Suma total del cuaderno de deudas</span>
+    </div>
+  </div>
+
   <!-- MODAL DE COBRO -->
   <div class="modal-overlay" id="modalCobro">
     <div class="modal-content">
@@ -195,17 +229,16 @@
     </div>
   </div>
 
-  <!-- NAVEGACIÓN INFERIOR (Con IDs para ocultar según perfil) -->
+  <!-- NAVEGACIÓN INFERIOR -->
   <div class="bottom-nav">
     <div class="nav-item active" id="nav-caja" onclick="switchTab('caja', this)"><span class="nav-icon">🛒</span>Caja</div>
     <div class="nav-item" id="nav-inventario" onclick="switchTab('inventario', this)"><span class="nav-icon">📦</span>Inventario</div>
     <div class="nav-item" id="nav-cuaderno" onclick="switchTab('cuaderno', this)"><span class="nav-icon">📓</span>Cuaderno</div>
-    <div class="nav-item" id="nav-balance" onclick="alert('Próximamente: Contabilidad y Balance')"><span class="nav-icon">📊</span>Balance</div>
+    <div class="nav-item" id="nav-balance" onclick="switchTab('balance', this)"><span class="nav-icon">📊</span>Balance</div>
   </div>
 </div>
 
 <script>
-  // 1. CONFIGURACIÓN SUPABASE
   const SUPABASE_URL = 'https://rpppptdhzrkqevaleepm.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_0AGJqfTx3j9c4NjliiRbXQ_1qlTF4AH';
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -215,9 +248,9 @@
   let carrito = [];
   let totalVenta = 0;
   let gananciaVenta = 0;
-  let rolUsuario = 'empleado'; // Por defecto restrictivo
+  let rolUsuario = 'empleado'; 
 
-  // 2. SISTEMA DE AUTENTICACIÓN Y ROLES
+  // AUTENTICACIÓN
   async function verificarSesion() {
     const { data: { session } } = await db.auth.getSession();
     
@@ -225,17 +258,15 @@
       document.getElementById('login-container').style.display = 'none';
       document.getElementById('app-container').style.display = 'block';
 
-      // Consultar el rol del usuario en la base de datos
       const correo = session.user.email;
       const { data: perfil } = await db.from('perfiles').select('rol').eq('correo', correo).single();
       
       rolUsuario = perfil ? perfil.rol : 'empleado';
 
-      // Aplicar restricciones en la interfaz
       if (rolUsuario === 'empleado') {
         document.getElementById('nav-inventario').style.display = 'none';
         document.getElementById('nav-balance').style.display = 'none';
-        switchTab('caja', document.getElementById('nav-caja')); // Forzar a la caja
+        switchTab('caja', document.getElementById('nav-caja'));
       } else {
         document.getElementById('nav-inventario').style.display = 'flex';
         document.getElementById('nav-balance').style.display = 'flex';
@@ -256,16 +287,12 @@
     
     if(!email || !password) { errorMsg.textContent = 'Llena todos los campos'; return; }
     
-    btn.textContent = 'Cargando...';
-    btn.disabled = true;
-    errorMsg.textContent = '';
-
+    btn.textContent = 'Cargando...'; btn.disabled = true; errorMsg.textContent = '';
     const { error } = await db.auth.signInWithPassword({ email, password });
     
     if (error) {
       errorMsg.textContent = 'Credenciales incorrectas';
-      btn.textContent = 'Ingresar';
-      btn.disabled = false;
+      btn.textContent = 'Ingresar'; btn.disabled = false;
     } else {
       verificarSesion();
     }
@@ -282,7 +309,7 @@
 
   verificarSesion();
 
-  // 3. NAVEGACIÓN
+  // NAVEGACIÓN
   function switchTab(tab, elemento) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -290,14 +317,55 @@
     document.getElementById('screen-' + tab)?.classList.add('active');
     if (elemento) elemento.classList.add('active');
     
-    const titles = { 'caja': '🛒 Caja Registradora', 'inventario': '📦 Inventario', 'cuaderno': '📓 Cuaderno de Fiados' };
-    document.getElementById('headerTitle').textContent = titles[tab] || '📊 Balance';
+    const titles = { 'caja': '🛒 Caja Registradora', 'inventario': '📦 Inventario', 'cuaderno': '📓 Cuaderno de Fiados', 'balance': '📊 Balance del Día' };
+    document.getElementById('headerTitle').textContent = titles[tab];
     
     if(tab === 'caja') cargarProductos();
     if(tab === 'cuaderno') cargarClientes();
+    if(tab === 'balance') cargarBalance();
   }
 
-  // 4. INVENTARIO
+  // BALANCE Y CONTABILIDAD
+  async function cargarBalance() {
+    // Calcular inicio y fin del día actual
+    const inicioDía = new Date();
+    inicioDía.setHours(0, 0, 0, 0);
+    const finDía = new Date();
+    finDía.setHours(23, 59, 59, 999);
+
+    const { data: ventasHoy } = await db.from('ventas')
+      .select('*')
+      .gte('fecha', inicioDía.toISOString())
+      .lte('fecha', finDía.toISOString());
+
+    let tVentas = 0, tGanancia = 0, tEfectivo = 0, tNequi = 0, tFiadoHoy = 0;
+
+    if (ventasHoy) {
+      ventasHoy.forEach(v => {
+        tVentas += v.total_venta;
+        tGanancia += v.ganancia_neta;
+        
+        if (v.metodo_pago === 'Efectivo') tEfectivo += v.total_venta;
+        if (v.metodo_pago === 'Transferencia') tNequi += v.total_venta;
+        if (v.metodo_pago === 'Fiado') tFiadoHoy += v.total_venta;
+      });
+    }
+
+    const { data: clientes } = await db.from('clientes_fiado').select('saldo_pendiente');
+    let tFiadoTotal = 0;
+    if (clientes) {
+      tFiadoTotal = clientes.reduce((acc, c) => acc + (c.saldo_pendiente || 0), 0);
+    }
+
+    document.getElementById('balVentas').textContent = '$' + tVentas.toLocaleString();
+    document.getElementById('balGanancia').textContent = '$' + tGanancia.toLocaleString();
+    document.getElementById('balEfectivo').textContent = '$' + tEfectivo.toLocaleString();
+    document.getElementById('balNequi').textContent = '$' + tNequi.toLocaleString();
+    document.getElementById('balFiadoHoy').textContent = '$' + tFiadoHoy.toLocaleString();
+    document.getElementById('balFiadoTotal').textContent = '$' + tFiadoTotal.toLocaleString();
+  }
+
+  // INVENTARIO
   async function cargarProductos() {
     const { data } = await db.from('productos').select('*').order('nombre');
     if (data) { productos = data; renderProductos(productos); }
@@ -338,7 +406,7 @@
     cargarProductos();
   }
 
-  // 5. CLIENTES Y CUADERNO
+  // CLIENTES Y CUADERNO
   async function cargarClientes() {
     const { data } = await db.from('clientes_fiado').select('*').order('nombre');
     if (data) {
@@ -401,7 +469,7 @@
     cargarClientes();
   }
 
-  // 6. CAJA Y CARRITO
+  // CAJA Y CARRITO
   function agregarAlCarrito(id) {
     const prod = productos.find(p => p.id === id);
     const item = carrito.find(c => c.id === id);
@@ -450,7 +518,7 @@
     document.getElementById('btnCobrar').disabled = false;
   }
 
-  // 7. MODAL DE COBRO Y GUARDADO FINAL
+  // MODAL DE COBRO Y GUARDADO FINAL
   function abrirModalCobro() {
     document.getElementById('modalTotal').textContent = '$' + totalVenta.toLocaleString();
     document.getElementById('modalCobro').style.display = 'flex';
