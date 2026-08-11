@@ -74,7 +74,6 @@
         function startScanner() {
             html5QrCode = new Html5Qrcode("reader");
             
-            // Configuración optimizada para alta precisión en códigos de barras comerciales
             const config = { 
                 fps: 20, 
                 qrbox: { width: 280, height: 140 },
@@ -89,13 +88,8 @@
                 ]
             };
             
-            // Forzar uso de cámara trasera con preferencia de enfoque continuo si el hardware lo soporta
-            const cameraConfig = { 
-                facingMode: "environment",
-                advanced: [{ focusMode: "continuous" }]
-            };
-
-            html5QrCode.start(cameraConfig, config, (decodedText) => {
+            // Corrección: pasamos directamente el string de la cámara trasera para evitar errores de validación
+            html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
                 if (isProcessing) return; 
                 if (decodedText === lastScannedCode) return;
 
@@ -105,17 +99,15 @@
                 document.getElementById('stop-btn').classList.remove('hidden');
                 document.getElementById('flash-btn').classList.remove('hidden');
                 
-                // Intentar capturar el track de video para controlar el flash físico
                 try {
                     const videoTrack = html5QrCode.getRunningTrack();
                     if (videoTrack) track = videoTrack;
-                } catch(e) { console.log("Flash no soportado en este navegador", e); }
+                } catch(e) { console.log("Flash no soportado", e); }
             }).catch(err => alert("Error de cámara: " + err));
         }
 
         function stopScanner() {
             if (html5QrCode) {
-                // Apagar flash antes de detener por seguridad
                 if (flashOn) toggleFlash();
                 
                 html5QrCode.stop().then(() => {
@@ -149,7 +141,7 @@
 
         function handleScan(code) {
             lastScannedCode = code;
-            // Bloqueo aumentado a 5 segundos exactos
+            // Bloqueo configurado en 5 segundos
             setTimeout(() => { lastScannedCode = ""; }, 5000);
 
             if (inventory[code]) {
