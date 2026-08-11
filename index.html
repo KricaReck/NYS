@@ -50,7 +50,11 @@
   .chip { background: var(--bg-card); border: 1px solid var(--border); padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; color: var(--text-muted); white-space: nowrap; transition: all 0.2s; }
   .chip.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
   
-  .product-grid { display: grid; gap: 12px; margin-bottom: 24px; }
+  /* OPTIMIZACIÓN VISUAL: Product Grid con altura máxima y scroll */
+  .product-grid { display: grid; gap: 12px; margin-bottom: 24px; max-height: 40vh; overflow-y: auto; padding-right: 4px; }
+  .product-grid::-webkit-scrollbar { width: 6px; }
+  .product-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
   .product-card { background: var(--bg-card); padding: 16px; border-radius: 16px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); }
   .prod-info h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; color: var(--text-main); }
   .prod-info p { color: var(--success); font-weight: 700; font-size: 15px; }
@@ -65,6 +69,10 @@
   .qty-btn { background: var(--bg-card); border: 1px solid var(--border); width: 28px; height: 28px; border-radius: 8px; font-weight: bold; color: var(--text-main); }
   .qty-btn:active { background: var(--border); }
   
+  /* ESTILO PARA CANTIDAD MANUAL */
+  .cart-qty span.manual-qty { font-weight: 700; width: 36px; text-align: center; color: var(--text-main); cursor: pointer; padding: 4px 0; background: rgba(255,255,255,0.05); border-radius: 6px; border: 1px dashed var(--border); transition: all 0.2s; }
+  .cart-qty span.manual-qty:active { background: rgba(255,255,255,0.1); }
+
   .cart-total { display: flex; justify-content: space-between; font-size: 20px; font-weight: 700; margin: 20px 0; padding-top: 20px; border-top: 2px dashed var(--border); color: var(--text-main); }
   .btn-cobrar { background: var(--success); color: white; width: 100%; padding: 18px; border: none; border-radius: 16px; font-size: 18px; font-weight: 800; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); letter-spacing: 0.5px;}
   .btn-cobrar:active { transform: scale(0.97); }
@@ -87,15 +95,14 @@
   .balance-card.ventas { background: linear-gradient(135deg, #1e3a8a, #312e81); border: 1px solid #3730a3;}
   .balance-card.ganancia { background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #059669;}
   .balance-card h4 { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
-  .balance-card p { font-size: 26px; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px;}
+  .balance-card p { font-size: 26px; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px; display: flex; align-items: baseline; gap: 6px;}
   .balance-card.ventas h4, .balance-card.ganancia h4 { color: rgba(255,255,255,0.7); }
   .balance-card.ventas p, .balance-card.ganancia p { color: white; }
 
-  /* ESTILOS DEL HISTORIAL DE VENTAS */
   .history-card { background: var(--bg-main); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
   .history-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px; color: var(--text-muted); font-weight: 600; border-bottom: 1px dashed var(--border); padding-bottom: 8px;}
   .history-items { font-size: 14px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; }
-  .history-footer { display: flex; justify-content: space-between; font-weight: 800; font-size: 16px; color: var(--success); align-items: center;}
+  .history-footer { display: flex; justify-content: flex-end; font-weight: 800; font-size: 16px; color: var(--success); align-items: center;}
   .history-badge { font-size: 11px; padding: 3px 8px; border-radius: 8px; font-weight: 700; text-transform: uppercase; }
   .badge-efectivo { background: var(--success-light); color: var(--success); border: 1px solid var(--success); }
   .badge-nequi { background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary); }
@@ -165,6 +172,8 @@
     </div>
 
     <input type="text" id="searchInput" class="search-bar" placeholder="🔍 Buscar producto..." oninput="filtrarProductos()">
+    
+    <!-- GRID OPTIMIZADO: Ahora scrollea internamente -->
     <div class="product-grid" id="productosList"></div>
     
     <div class="cart-section">
@@ -240,23 +249,30 @@
   <div id="screen-balance" class="screen">
     <div class="balance-grid">
       <div class="balance-card ventas"><h4>Ingresos Hoy</h4><p id="balVentas">$0</p></div>
-      <div class="balance-card ganancia"><h4>Utilidad Neta</h4><p id="balGanancia">$0</p></div>
+      
+      <!-- INDICADOR % MARGEN INTEGRADO -->
+      <div class="balance-card ganancia">
+        <h4>Utilidad Neta</h4>
+        <p><span id="balGanancia">$0</span> <span id="balGananciaPct" style="font-size: 14px; opacity: 0.8; font-weight: 600;">(0%)</span></p>
+      </div>
     </div>
     
     <div class="cart-section" style="margin-top: 24px;">
       <h3 style="margin-bottom: 16px; color:var(--text-main);">Arqueo de Caja (Hoy)</h3>
-      <div class="cart-item"><span style="color:var(--text-muted);">💵 Efectivo Físico</span><span id="balEfectivo" style="font-weight: 800; font-size: 16px; color:var(--text-main);">$0</span></div>
+      <div class="cart-item"><span style="color:var(--text-muted);">💵 Efectivo Físico Neto</span><span id="balEfectivo" style="font-weight: 800; font-size: 16px; color:var(--text-main);">$0</span></div>
       <div class="cart-item"><span style="color:var(--text-muted);">📱 Digital (Nequi)</span><span id="balNequi" style="font-weight: 800; font-size: 16px; color: var(--primary);">$0</span></div>
       <div class="cart-item"><span style="color:var(--text-muted);">📓 Créditos (Fiado)</span><span id="balFiadoHoy" style="font-weight: 800; font-size: 16px; color: var(--warning);">$0</span></div>
     </div>
     
-    <div class="balance-card" style="margin-top: 24px; border: 1px solid var(--warning); background: var(--bg-main);">
-      <h4 style="color: var(--warning);">Capital Pendiente (Histórico)</h4>
-      <p id="balFiadoTotal" style="color: var(--text-main);">$0</p>
-      <span style="font-size: 13px; color: var(--text-muted); margin-top: 4px; display: block;">Suma total en el cuaderno</span>
+    <!-- TARJETA FIADO OCULTABLE -->
+    <div class="balance-card" style="margin-top: 24px; border: 1px solid var(--warning); background: var(--bg-main); cursor: pointer;" onclick="document.getElementById('deudaOculta').style.display = document.getElementById('deudaOculta').style.display === 'none' ? 'block' : 'none'">
+      <h4 style="color: var(--warning); display: flex; justify-content: space-between; margin-bottom: 0;">Capital Pendiente (Histórico) <span>👁️ Ver</span></h4>
+      <div id="deudaOculta" style="display: none; margin-top: 12px; animation: fadeIn 0.2s;">
+        <p id="balFiadoTotal" style="color: var(--text-main);">$0</p>
+        <span style="font-size: 13px; color: var(--text-muted); margin-top: 4px; display: block;">Suma total adeudada en el cuaderno</span>
+      </div>
     </div>
 
-    <!-- NUEVO: HISTORIAL DE VENTAS -->
     <div class="cart-section" style="margin-top: 24px;">
       <h3 style="margin-bottom: 16px; color:var(--text-main);">📝 Historial de Ventas (Hoy)</h3>
       <div id="historialVentasList">
@@ -265,7 +281,6 @@
     </div>
   </div>
 
-  <!-- MODAL DE COBRO -->
   <div class="modal-overlay" id="modalCobro" onclick="if(event.target===this) cerrarModal()">
     <div class="modal-content">
       <h2 style="text-align: center; margin-bottom: 4px; font-size: 14px; color: var(--text-muted); font-weight: 700; letter-spacing: 1px;">TOTAL A COBRAR</h2>
@@ -415,8 +430,11 @@
     let tFiadoTotal = 0;
     if (clientes) tFiadoTotal = clientes.reduce((acc, c) => acc + (c.saldo_pendiente || 0), 0);
 
+    const margenPct = tVentas > 0 ? ((tGanancia / tVentas) * 100).toFixed(1) : 0;
+
     document.getElementById('balVentas').textContent = '$' + tVentas.toLocaleString();
     document.getElementById('balGanancia').textContent = '$' + tGanancia.toLocaleString();
+    document.getElementById('balGananciaPct').textContent = `(${margenPct}%)`;
     document.getElementById('balEfectivo').textContent = '$' + tEfectivo.toLocaleString();
     document.getElementById('balNequi').textContent = '$' + tNequi.toLocaleString();
     document.getElementById('balFiadoHoy').textContent = '$' + tFiadoHoy.toLocaleString();
@@ -430,7 +448,6 @@
       return;
     }
 
-    // Ordenar de más reciente a más antigua
     const ventasOrdenadas = [...ventas].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
     contenedor.innerHTML = ventasOrdenadas.map(v => {
@@ -446,6 +463,7 @@
         itemsTexto = v.articulos.map(item => `${item.cantidad}x ${item.nombre}`).join('<br>');
       }
 
+      // SE ELIMINÓ LA LÍNEA DE GANANCIA POR PRIVACIDAD
       return `
         <div class="history-card">
           <div class="history-header">
@@ -456,7 +474,6 @@
             ${itemsTexto}
           </div>
           <div class="history-footer">
-            <span style="color:var(--text-muted); font-size: 13px;">Ganancia: $${v.ganancia_neta.toLocaleString()}</span>
             <span>$${v.total_venta.toLocaleString()}</span>
           </div>
         </div>
@@ -656,6 +673,29 @@
     actualizarCarrito();
   }
 
+  // EDICIÓN MANUAL DE CANTIDAD EN TICKET
+  function editarCantidadManual(id) {
+    const prod = productos.find(p => p.id === id);
+    const item = carrito.find(c => c.id === id);
+    if (!item) return;
+
+    const input = prompt(`¿Cuántas unidades de ${prod.nombre} deseas cobrar?`, item.cantidad);
+    if (input === null || input.trim() === '') return;
+
+    const nuevaCant = parseInt(input);
+    if (isNaN(nuevaCant) || nuevaCant < 0) return customAlert('Cantidad inválida', true);
+
+    if (nuevaCant === 0) {
+      carrito = carrito.filter(c => c.id !== id);
+    } else if (nuevaCant > prod.stock) {
+      customAlert('Stock máximo alcanzado', true);
+      item.cantidad = prod.stock;
+    } else {
+      item.cantidad = nuevaCant;
+    }
+    actualizarCarrito();
+  }
+
   function actualizarCarrito() {
     const container = document.getElementById('cartList');
     totalVenta = 0; gananciaVenta = 0;
@@ -669,7 +709,11 @@
       return `
       <div class="cart-item">
         <div style="flex:1"><div style="font-weight:600; font-size:15px; color:var(--text-main);">${c.nombre}</div><div style="color:var(--text-muted); font-size:13px; margin-top:2px;">$${c.precio_venta.toLocaleString()} c/u</div></div>
-        <div class="cart-qty"><button class="qty-btn" onclick="cambiarCant('${c.id}', -1)">-</button><span style="font-weight:700; width:24px; text-align:center; color:var(--text-main);">${c.cantidad}</span><button class="qty-btn" onclick="cambiarCant('${c.id}', 1)">+</button></div>
+        <div class="cart-qty">
+          <button class="qty-btn" onclick="cambiarCant('${c.id}', -1)">-</button>
+          <span class="manual-qty" onclick="editarCantidadManual('${c.id}')" title="Tocar para editar">${c.cantidad}</span>
+          <button class="qty-btn" onclick="cambiarCant('${c.id}', 1)">+</button>
+        </div>
         <div style="font-weight:800; font-size:16px; width:80px; text-align:right; color:var(--success);">$${subtotal.toLocaleString()}</div>
       </div>`
     }).join('');
