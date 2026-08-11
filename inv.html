@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario NyS by KricaReck</title>
+    <title>Inventario Cigarreria</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 </head>
@@ -33,7 +33,7 @@
                 <input type="number" id="prod-sell" placeholder="P. Venta" class="w-1/2 border p-2 rounded text-sm">
             </div>
             <input type="number" id="prod-qty" placeholder="Cantidad inicial" value="1" class="w-full border p-2 mb-2 rounded text-sm">
-            <button onclick="saveNewProduct()" class="bg-blue-600 text-white w-full py-2 rounded font-semibold text-sm">Guardar y Continuar</button>
+            <button onclick="saveNewProduct()" class="bg-blue-600 text-white w-full py-2 rounded font-semibold text-sm">Guardar y Sincronizar</button>
         </div>
 
         <!-- MODAL PARA EDITAR PRODUCTO EXISTENTE -->
@@ -78,6 +78,9 @@
     </div>
 
     <script>
+        // URL de tu Google Apps Script proporcionada
+        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbz_O2OPz_PIVUqYRWdEonCE8mOuUJjeF5-4cPccKD9omhBRNqa7QABHvGIsar2eFe0/exec";
+
         let html5QrCode;
         let inventory = JSON.parse(localStorage.getItem('cigarreria_inv')) || {};
         let lastScannedCode = "";
@@ -114,12 +117,10 @@
                 document.getElementById('start-btn').classList.add('hidden');
                 document.getElementById('stop-btn').classList.remove('hidden');
                 
-                // Capturar directamente el hardware track de video para el flash en Samsung / Android
                 try {
                     const qrBoxElement = html5QrCode.getRunningTrack();
                     if (qrBoxElement) {
                         videoTrack = qrBoxElement;
-                        // Forzar validación de capacidad de antemano
                         const capabilities = videoTrack.getCapabilities();
                         if (capabilities && capabilities.torch) {
                             document.getElementById('flash-btn').classList.remove('hidden');
@@ -133,7 +134,7 @@
         }
 
         function stopScanner() {
-            if (flashOn) toggleFlash(); // Apagar flash por seguridad al detener
+            if (flashOn) toggleFlash();
             
             if (html5QrCode) {
                 html5QrCode.stop().then(() => {
@@ -217,6 +218,16 @@
             saveStorage();
             updateTable();
 
+            // Enviar datos a Google Sheets de manera asíncrona
+            syncToGoogleSheets({
+                'Codigo': pendingCode,
+                'Nombre': name,
+                'Categoria': category,
+                'P.Compra': buyPrice,
+                'P.Venta': sellPrice,
+                'Cantidad': qty
+            });
+
             document.getElementById('prod-name').value = '';
             document.getElementById('prod-cat').value = '';
             document.getElementById('prod-buy').value = '';
@@ -228,11 +239,19 @@
             startScanner(); 
         }
 
+        function syncToGoogleSheets(data) {
+            fetch(GOOGLE_SHEET_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(data)
+            }).catch(err => console.log("Error al sincronizar con Sheets:", err));
+        }
+
         function editProduct(code) {
             const item = inventory[code];
             if (!item) return;
 
-            // Si la cámara está activa, detenerla temporalmente para editar con comodidad
             if (html5QrCode && document.getElementById('stop-btn').classList.contains('hidden') == false) {
                 stopScanner();
             }
